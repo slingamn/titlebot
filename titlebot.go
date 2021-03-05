@@ -22,6 +22,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/goshuirc/irc-go/ircevent"
 )
@@ -60,6 +61,23 @@ var (
 // XXX make a message safe for IRC; we mainly need to kill NUL, \r, and \n
 func normalizeMessage(message string) string {
 	return normalizeReplacer.Replace(message)
+}
+
+// truncate a message, taking care not to make valid UTF8 into invallid UTF8
+func truncateUTF8(message string, limit int) (result string) {
+	if len(message) <= limit {
+		return message
+	}
+	message = message[:limit]
+	for i := 0; i < (utf8.UTFMax - 1); i++ {
+		r, n := utf8.DecodeLastRuneInString(message)
+		if r == utf8.RuneError && n <= 1 {
+			message = message[:len(message)-1]
+		} else {
+			break
+		}
+	}
+	return message
 }
 
 type Bot struct {
@@ -285,9 +303,7 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 		title = html.UnescapeString(title)
 		title = strings.TrimSpace(title)
 		title = normalizeMessage(title)
-		if len(title) > titleCharLimit {
-			title = title[:titleCharLimit]
-		}
+		title = truncateUTF8(title, titleCharLimit)
 		if len(title) != 0 {
 			irc.sendReplyNotice(target, msgid, title)
 		}
