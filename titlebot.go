@@ -438,7 +438,7 @@ func newBot() *Bot {
 		if fromOwner {
 			irc.handleOwnerCommand(e.Params[0], message)
 		} else if strings.HasPrefix(message, irc.Nick) {
-			irc.sendReplyNotice(e.Params[0], msgid, "don't @ me, fleshbag")
+			irc.sendReplyNotice(e.Params[0], msgid, "don't @ me, mortal")
 		}
 	})
 	irc.AddCallback("INVITE", func(e ircevent.Event) {
