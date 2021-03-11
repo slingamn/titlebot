@@ -25,6 +25,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/goshuirc/irc-go/ircevent"
+	"github.com/goshuirc/irc-go/ircmsg"
 )
 
 type empty struct{}
@@ -364,7 +365,7 @@ func (irc *Bot) sendReplyNotice(target, msgid, text string) {
 	}
 }
 
-func ownerMatches(e ircevent.Event, owner string) bool {
+func ownerMatches(e ircmsg.Message, owner string) bool {
 	if owner == "" {
 		return false
 	}
@@ -417,7 +418,7 @@ func newBot() *Bot {
 		semaphore:          make(chan empty, concurrencyLimit),
 	}
 
-	irc.AddConnectCallback(func(e ircevent.Event) {
+	irc.AddConnectCallback(func(e ircmsg.Message) {
 		if botMode := irc.ISupport()["BOT"]; botMode != "" {
 			irc.Send("MODE", irc.CurrentNick(), "+"+botMode)
 		}
@@ -425,7 +426,7 @@ func newBot() *Bot {
 			irc.Join(strings.TrimSpace(channel))
 		}
 	})
-	irc.AddCallback("PRIVMSG", func(e ircevent.Event) {
+	irc.AddCallback("PRIVMSG", func(e ircmsg.Message) {
 		target, message := e.Params[0], e.Params[1]
 		_, msgid := e.GetTag("msgid")
 		fromOwner := ownerMatches(e, irc.Owner)
@@ -441,7 +442,7 @@ func newBot() *Bot {
 			irc.sendReplyNotice(e.Params[0], msgid, "don't @ me, mortal")
 		}
 	})
-	irc.AddCallback("INVITE", func(e ircevent.Event) {
+	irc.AddCallback("INVITE", func(e ircmsg.Message) {
 		fromOwner := ownerMatches(e, irc.Owner)
 		if fromOwner {
 			irc.Join(e.Params[1])
