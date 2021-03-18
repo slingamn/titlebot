@@ -20,5 +20,7 @@ github.com/goshuirc/irc-go v0.0.0-20210311004346-ea7a188a73fe h1:5UsPgeXJBkFgJK3
 github.com/goshuirc/irc-go v0.0.0-20210311004346-ea7a188a73fe/go.mod h1:q/JhvvKLmif3y9q8MDQM+gRCnjEKnu5ClF298TTXJug=
 github.com/goshuirc/irc-go v0.0.0-20210317062430-f3d1c7c2945e h1:MeRnVf2MnuF9xZfQm2xy0zsSUZtgprc3qw3J/u0fpyY=
 github.com/goshuirc/irc-go v0.0.0-20210317062430-f3d1c7c2945e/go.mod h1:q/JhvvKLmif3y9q8MDQM+gRCnjEKnu5ClF298TTXJug=
+github.com/goshuirc/irc-go v0.0.0-20210318074529-bdc2c2cd2fef h1:07e6GcSuNh1BoZJigrvaJSpe2PsYJgkYETOuGKpM2co=
+github.com/goshuirc/irc-go v0.0.0-20210318074529-bdc2c2cd2fef/go.mod h1:q/JhvvKLmif3y9q8MDQM+gRCnjEKnu5ClF298TTXJug=
 golang.org/x/text v0.3.2/go.mod h1:bEr9sfX3Q8Zfm5fL9x+3itogRgK3+ptLWKqgva+5dAk=
 golang.org/x/tools v0.0.0-20180917221912-90fa682c2a6e/go.mod h1:n7NCudcB/nEzxVGmLbDWY5pfWTLqBcC2KZ6jyYvM4mQ=
