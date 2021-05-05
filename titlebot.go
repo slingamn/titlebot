@@ -45,9 +45,6 @@ const (
 )
 
 var (
-	// drop NUL and \r, misc space characters -> " ", \n -> "  "
-	normalizeReplacer = strings.NewReplacer("\x00", "", "\r", "", "\t", " ", "\v", " ", "\f", " ", "\u0085", " ", "\u00a0", " ", "\n", "  ")
-
 	urlRe   = regexp.MustCompile(`(?i)(https?://.*?)( |$)`)
 	tweetRe = regexp.MustCompile(`(?i)https://(mobile\.?)?twitter.com/.*/status/([0-9]+)`)
 	// <title>bar</title>, <title data-react-helmet="true">qux</title>
@@ -58,11 +55,6 @@ var (
 		Timeout: 15 * time.Second,
 	}
 )
-
-// XXX make a message safe for IRC; we mainly need to kill NUL, \r, and \n
-func normalizeMessage(message string) string {
-	return normalizeReplacer.Replace(message)
-}
 
 type Bot struct {
 	ircevent.Connection
@@ -205,7 +197,7 @@ func (irc *Bot) titleTwitter(target, msgid, twid string) {
 	}
 	timeStr := displayTwitterTime(ts)
 	// https://stackoverflow.com/questions/30704063/the-twitter-api-seems-to-escape-ampersand-but-nothing-else
-	safeText := normalizeMessage(html.UnescapeString(tweet.Data.Text))
+	safeText := ircutils.SanitizeText(html.UnescapeString(tweet.Data.Text), titleCharLimit)
 	message := fmt.Sprintf("(@%s%s, %s) %s", author, maybeCheckmark, timeStr, safeText)
 	irc.sendReplyNotice(target, msgid, message)
 }
@@ -286,8 +278,7 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 		title := string(titleMatch[1])
 		title = html.UnescapeString(title)
 		title = strings.TrimSpace(title)
-		title = normalizeMessage(title)
-		title = ircutils.TruncateUTF8Safe(title, titleCharLimit)
+		title = ircutils.SanitizeText(title, titleCharLimit)
 		if len(title) != 0 {
 			irc.sendReplyNotice(target, msgid, title)
 		}
