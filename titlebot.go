@@ -34,6 +34,7 @@ const (
 	trustedReadLimit      = 1024 * 1024
 	genericTitleReadLimit = 1024 * 32
 	titleCharLimit        = 400
+	maxUrlsPerMessage     = 4
 
 	concurrencyLimit = 128
 
@@ -45,7 +46,7 @@ const (
 )
 
 var (
-	urlRe   = regexp.MustCompile(`(?i)(https?://.*?)( |$)`)
+	urlRe   = regexp.MustCompile(`(?i)(https?://.*?)(\s|$)`)
 	tweetRe = regexp.MustCompile(`(?i)https://(mobile\.?)?twitter.com/.*/status/([0-9]+)`)
 	// <title>bar</title>, <title data-react-helmet="true">qux</title>
 	genericTitleRe = regexp.MustCompile(`(?is)<\s*title\b.*?>(.*?)<`)
@@ -76,10 +77,16 @@ func (b *Bot) releaseSemaphore() {
 	<-b.semaphore
 }
 
-func findURL(str string) (url string) {
-	m := urlRe.FindStringSubmatch(str)
-	if len(m) > 2 {
-		return m[1]
+func findURL(str string) (urls []string) {
+	matches := urlRe.FindAllStringSubmatch(str, -1)
+	if matches == nil {
+		return
+	}
+	urls = make([]string, 0, len(matches))
+	for _, submatch := range matches {
+		if len(submatch) > 2 {
+			urls = append(urls, submatch[1])
+		}
 	}
 	return
 }
@@ -90,6 +97,15 @@ func extractTweetID(url string) (twid string) {
 		return tweetMatches[2]
 	}
 	return
+}
+
+func (irc *Bot) titleAll(target, msgid string, urls []string) {
+	if len(urls) > maxUrlsPerMessage {
+		urls = urls[:maxUrlsPerMessage]
+	}
+	for _, url := range urls {
+		irc.title(target, msgid, url)
+	}
 }
 
 func (irc *Bot) title(target, msgid, url string) {
@@ -407,8 +423,8 @@ func newBot() *Bot {
 		if !strings.HasPrefix(target, "#") && !fromOwner {
 			return
 		}
-		if url := findURL(message); url != "" {
-			go irc.title(e.Params[0], msgid, url)
+		if urls := findURL(message); urls != nil {
+			go irc.titleAll(e.Params[0], msgid, urls)
 		}
 		if fromOwner {
 			irc.handleOwnerCommand(e.Params[0], message)
