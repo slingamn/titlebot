@@ -2,4 +2,4 @@ module github.com/slingamn/titlebot
 
 go 1.16
 
-require github.com/goshuirc/irc-go v0.0.0-20210423154142-de8a22cda2aa
+require github.com/ergochat/irc-go v0.0.0-20210617222258-256f1601d3ce

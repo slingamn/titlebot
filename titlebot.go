@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/goshuirc/irc-go/ircevent"
-	"github.com/goshuirc/irc-go/ircmsg"
-	"github.com/goshuirc/irc-go/ircutils"
+	"github.com/ergochat/irc-go/ircevent"
+	"github.com/ergochat/irc-go/ircmsg"
+	"github.com/ergochat/irc-go/ircutils"
 )
 
 type empty struct{}
@@ -381,7 +381,7 @@ func newBot() *Bot {
 	// more optional settings
 	version := os.Getenv("TITLEBOT_VERSION")
 	if version == "" {
-		version = "github.com/goshuirc/irc-go"
+		version = "github.com/ergochat/irc-go"
 	}
 	debug := os.Getenv("TITLEBOT_DEBUG") != ""
 	insecure := os.Getenv("TITLEBOT_INSECURE_SKIP_VERIFY") != ""
