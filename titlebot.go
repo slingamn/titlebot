@@ -302,9 +302,27 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 }
 
 func domainMatch(host, domain string) bool {
-	host = strings.ToLower(host)
+	// XXX host must already be lowercase
 	trimmed := strings.TrimSuffix(host, domain)
 	return host != trimmed && (trimmed == "" || strings.HasSuffix(trimmed, "."))
+}
+
+// these domains send a lot of garbage JS ahead of the title tag,
+// so we need to extend the read limit to handle them
+var garbageJSDomains = []string{
+	"amazon.com",
+	"amazon.ca",
+	"amzn.to",
+	"imdb.com",
+}
+
+func isGarbageJSDomain(host string) bool {
+	for _, domain := range garbageJSDomains {
+		if domainMatch(host, domain) {
+			return true
+		}
+	}
+	return false
 }
 
 func (irc *Bot) analyzeURL(urlStr string) (byteLimit int, titleRe *regexp.Regexp, err error) {
@@ -316,11 +334,11 @@ func (irc *Bot) analyzeURL(urlStr string) (byteLimit int, titleRe *regexp.Regexp
 	if splitHost, _, err := net.SplitHostPort(host); err == nil {
 		host = splitHost
 	}
-	if domainMatch(host, "youtube.com") || domainMatch(host, "youtu.be") {
+	hostLower := strings.ToLower(host)
+	if domainMatch(hostLower, "youtube.com") || domainMatch(hostLower, "youtu.be") {
 		// with youtube we have to check for the <meta> tag instead of <title>
 		return trustedReadLimit, youtubeTitleRe, nil
-	} else if domainMatch(host, "amazon.com") || domainMatch(host, "amazon.ca") || domainMatch(host, "amzn.to") {
-		// amazon sends a bunch of nonsense JS before the <title> tag
+	} else if isGarbageJSDomain(hostLower) {
 		return trustedReadLimit, genericTitleRe, nil
 	} else {
 		return genericTitleReadLimit, genericTitleRe, nil
