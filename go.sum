@@ -1,2 +1,4 @@
 github.com/ergochat/irc-go v0.0.0-20210617222258-256f1601d3ce h1:RfyjeynouKZjmnN8WGzCSrtuHGZ9dwfSYBq405FPoqs=
 github.com/ergochat/irc-go v0.0.0-20210617222258-256f1601d3ce/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
+github.com/ergochat/irc-go v0.0.0-20211003214124-0e1b7ad1b94f h1:q7yvbR6ldkjF6ohiTJpUM/aYYhk8YhvlYlv4sDpE3bA=
+github.com/ergochat/irc-go v0.0.0-20211003214124-0e1b7ad1b94f/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
