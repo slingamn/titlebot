@@ -314,6 +314,8 @@ var garbageJSDomains = []string{
 	"amazon.ca",
 	"amzn.to",
 	"imdb.com",
+	"google.com",
+	"goo.gl",
 }
 
 func isGarbageJSDomain(host string) bool {
