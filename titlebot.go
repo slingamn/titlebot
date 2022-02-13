@@ -40,7 +40,7 @@ const (
 
 	IRCv3TimestampFormat = "2006-01-02T15:04:05.000Z"
 
-	fakeUA = "Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0"
+	fakeUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.81 Safari/537.36"
 
 	replyTagName = "+draft/reply"
 )
