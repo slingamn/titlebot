@@ -40,7 +40,7 @@ const (
 
 	IRCv3TimestampFormat = "2006-01-02T15:04:05.000Z"
 
-	fakeUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.81 Safari/537.36"
+	defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.81 Safari/537.36"
 
 	replyTagName = "+draft/reply"
 )
@@ -62,6 +62,7 @@ type Bot struct {
 	TwitterBearerToken string
 	Owner              string
 	semaphore          chan empty
+	userAgent          string
 }
 
 func (b *Bot) tryAcquireSemaphore() bool {
@@ -270,7 +271,7 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 		return
 	}
 	headers := map[string][]string{
-		"User-Agent": {fakeUA},
+		"User-Agent": {irc.userAgent},
 	}
 	req.Header = headers
 
@@ -406,6 +407,10 @@ func newBot() *Bot {
 	}
 	debug := os.Getenv("TITLEBOT_DEBUG") != ""
 	insecure := os.Getenv("TITLEBOT_INSECURE_SKIP_VERIFY") != ""
+	userAgent := os.Getenv("TITLEBOT_USER_AGENT")
+	if userAgent == "" {
+		userAgent = defaultUserAgent
+	}
 
 	var tlsconf *tls.Config
 	if insecure {
@@ -426,6 +431,7 @@ func newBot() *Bot {
 		},
 		TwitterBearerToken: twitterToken,
 		Owner:              owner,
+		userAgent:          userAgent,
 		semaphore:          make(chan empty, concurrencyLimit),
 	}
 
