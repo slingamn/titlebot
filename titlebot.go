@@ -32,7 +32,7 @@ type empty struct{}
 
 const (
 	trustedReadLimit      = 1024 * 1024
-	genericTitleReadLimit = 1024 * 32
+	genericTitleReadLimit = 1024 * 64
 	titleCharLimit        = 400
 	maxUrlsPerMessage     = 4
 
