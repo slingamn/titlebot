@@ -181,7 +181,7 @@ func (irc *Bot) titleTwitter(target, msgid, twid string) {
 		return
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		irc.Log.Printf("bad http code in titleTwitter: %d\n", resp.StatusCode)
 		return
 	}
@@ -280,7 +280,10 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 		return
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
+		if irc.Debug {
+			irc.Log.Printf("Can't title %s : HTTP code %d\n", url, resp.StatusCode)
+		}
 		return
 	}
 	br := io.LimitedReader{R: resp.Body, N: int64(byteLimit)}
@@ -290,6 +293,7 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 		irc.Log.Printf("couldn't read in titleGeneric: %v\n", err)
 		return
 	}
+	success := false
 	titleMatch := titleRe.FindSubmatch(body)
 	if len(titleMatch) == 2 {
 		title := string(titleMatch[1])
@@ -297,8 +301,12 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 		title = strings.TrimSpace(title)
 		title = ircutils.SanitizeText(title, titleCharLimit)
 		if len(title) != 0 {
+			success = true
 			irc.sendReplyNotice(target, msgid, title)
 		}
+	}
+	if !success && irc.Debug {
+		irc.Log.Printf("Can't title %s : title not found\n", url)
 	}
 }
 
