@@ -46,8 +46,8 @@ const (
 )
 
 var (
-	urlRe   = regexp.MustCompile(`(?i)(https?://.*?)(\s|$)`)
-	tweetRe = regexp.MustCompile(`(?i)https://(mobile\.?)?twitter.com/.*/status/([0-9]+)`)
+	urlRe   = regexp.MustCompile(`\b(?i)(https?://.*?)(\s|$)`)
+	tweetRe = regexp.MustCompile(`\b(?i)https://(mobile\.?)?twitter.com/.*/status/([0-9]+)`)
 	// <title>bar</title>, <title data-react-helmet="true">qux</title>
 	genericTitleRe = regexp.MustCompile(`(?is)<\s*title\b.*?>(.*?)<`)
 	youtubeTitleRe = regexp.MustCompile(`(?is)<meta name="title" content="(.*?)"`)
