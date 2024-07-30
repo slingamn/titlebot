@@ -50,7 +50,7 @@ var (
 	tweetRe = regexp.MustCompile(`\b(?i)https://(mobile\.?)?twitter.com/.*/status/([0-9]+)`)
 	// <title>bar</title>, <title data-react-helmet="true">qux</title>
 	genericTitleRe = regexp.MustCompile(`(?is)<\s*title\b.*?>(.*?)<`)
-	youtubeTitleRe = regexp.MustCompile(`\{"title":\{"runs":\[\{"text":"(.*?)"\}\]\}`)
+	youtubeTitleRe = regexp.MustCompile(`\{"title":\{"runs":\[\{"text":"(.*?)"\}`)
 
 	httpClient = &http.Client{
 		Timeout: 15 * time.Second,
