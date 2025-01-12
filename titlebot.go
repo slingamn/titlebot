@@ -326,6 +326,8 @@ var garbageJSDomains = []string{
 	"google.com",
 	"goo.gl",
 	"github.com",
+	"youtube.com",
+	"youtu.be",
 }
 
 func isGarbageJSDomain(host string) bool {
@@ -347,10 +349,7 @@ func (irc *Bot) analyzeURL(urlStr string) (byteLimit int, titleRe *regexp.Regexp
 		host = splitHost
 	}
 	hostLower := strings.ToLower(host)
-	if domainMatch(hostLower, "youtube.com") || domainMatch(hostLower, "youtu.be") {
-		// with youtube we have to check for the <meta> tag instead of <title>
-		return trustedReadLimit, youtubeTitleRe, nil
-	} else if isGarbageJSDomain(hostLower) {
+	if isGarbageJSDomain(hostLower) {
 		return trustedReadLimit, genericTitleRe, nil
 	} else {
 		return genericTitleReadLimit, genericTitleRe, nil
