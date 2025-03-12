@@ -187,7 +187,7 @@ func (irc *Bot) titleBluesky(target, msgid, handle, postid string) {
 		return
 	}
 	timeStr := displayTwitterTime(ts)
-	safeText := ircutils.SanitizeText(html.UnescapeString(record.Text), titleCharLimit)
+	safeText := ircutils.SanitizeText(record.Text, titleCharLimit)
 	message := fmt.Sprintf("(@%s, %s) %s", handle, timeStr, safeText)
 	irc.sendReplyNotice(target, msgid, message)
 }
