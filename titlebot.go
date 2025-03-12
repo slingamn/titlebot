@@ -321,8 +321,11 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 
 func domainMatch(host, domain string) bool {
 	// XXX host must already be lowercase
-	trimmed := strings.TrimSuffix(host, domain)
-	return host != trimmed && (trimmed == "" || strings.HasSuffix(trimmed, "."))
+	if trimmed, ok := strings.CutSuffix(host, domain); ok {
+		return trimmed == "" || strings.HasSuffix(trimmed, ".")
+	} else {
+		return false
+	}
 }
 
 // these domains send a lot of garbage JS ahead of the title tag,
@@ -357,8 +360,7 @@ func (irc *Bot) analyzeURL(urlStr string) (byteLimit int, titleRe *regexp.Regexp
 	if splitHost, _, err := net.SplitHostPort(host); err == nil {
 		host = splitHost
 	}
-	hostLower := strings.ToLower(host)
-	if isGarbageJSDomain(hostLower) {
+	if isGarbageJSDomain(strings.ToLower(host)) {
 		return trustedReadLimit, genericTitleRe, nil
 	} else {
 		return genericTitleReadLimit, genericTitleRe, nil
