@@ -43,11 +43,13 @@ const (
 	defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.81 Safari/537.36"
 
 	replyTagName = "+draft/reply"
+
+	blueskyAPIBase = "https://bsky.social/xrpc"
 )
 
 var (
-	urlRe   = regexp.MustCompile(`\b(?i)(https?://.*?)(\s|$)`)
-	tweetRe = regexp.MustCompile(`\b(?i)https://(mobile\.?)?twitter.com/.*/status/([0-9]+)`)
+	urlRe     = regexp.MustCompile(`\b(?i)(https?://.*?)(\s|$)`)
+	blueskyRe = regexp.MustCompile(`https://bsky\.app/profile/([^/]+)/post/([^/]+)`)
 	// <title>bar</title>, <title data-react-helmet="true">qux</title>
 	genericTitleRe = regexp.MustCompile(`(?is)<\s*title\b.*?>(.*?)<`)
 
@@ -91,10 +93,10 @@ func findURL(str string) (urls []string) {
 	return
 }
 
-func extractTweetID(url string) (twid string) {
-	tweetMatches := tweetRe.FindStringSubmatch(url)
-	if len(tweetMatches) == 3 {
-		return tweetMatches[2]
+func extractBlueskyData(url string) (handle, postid string) {
+	matches := blueskyRe.FindStringSubmatch(url)
+	if len(matches) == 3 {
+		return matches[1], matches[2]
 	}
 	return
 }
@@ -128,8 +130,8 @@ func (irc *Bot) title(target, msgid, url string) {
 		}
 	}()
 
-	if twid := extractTweetID(url); twid != "" {
-		irc.titleTwitter(target, msgid, twid)
+	if handle, postid := extractBlueskyData(url); handle != "" {
+		irc.titleBluesky(target, msgid, handle, postid)
 	} else {
 		irc.titleGeneric(target, msgid, url)
 	}
@@ -161,61 +163,88 @@ type Tweet struct {
 	}
 }
 
-func (irc *Bot) titleTwitter(target, msgid, twid string) {
-	if irc.TwitterBearerToken == "" {
-		irc.Log.Printf("set TITLEBOT_TWITTER_BEARER_TOKEN to read tweets\n")
+type BlueskyPostRecord struct {
+	Text      string `json:"text"`
+	CreatedAt string `json:"createdAt"`
+	//Embed     *Embed    `json:"embed,omitempty"`
+	//Facets    []Facet   `json:"facets,omitempty"`
+	//Reply     *Reply    `json:"reply,omitempty"`
+	//Langs     []string  `json:"langs,omitempty"`
+}
+
+func (irc *Bot) titleBluesky(target, msgid, handle, postid string) {
+	did := irc.resolveBlueskyHandle(handle)
+	if did == "" {
 		return
 	}
-	url := fmt.Sprintf("https://api.twitter.com/2/tweets/%s?tweet.fields=created_at&expansions=author_id&user.fields=verified", twid)
-	req, err := http.NewRequest("GET", url, nil)
-	if irc.checkErr(err, "NewRequest error in titleTwitter") {
+	record, err := irc.getBlueskyPost(did, postid)
+	if err != nil {
 		return
 	}
-	headers := map[string][]string{
-		"Authorization": {fmt.Sprintf("Bearer %s", irc.TwitterBearerToken)},
+
+	ts, err := time.Parse(IRCv3TimestampFormat, record.CreatedAt)
+	if irc.checkErr(err, "invalid time created in bsky post") {
+		return
 	}
-	req.Header = headers
-	resp, err := httpClient.Do(req)
-	if irc.checkErr(err, "http error in titleTwitter") {
+	timeStr := displayTwitterTime(ts)
+	safeText := ircutils.SanitizeText(html.UnescapeString(record.Text), titleCharLimit)
+	message := fmt.Sprintf("(@%s, %s) %s", handle, timeStr, safeText)
+	irc.sendReplyNotice(target, msgid, message)
+}
+
+func (irc *Bot) resolveBlueskyHandle(handle string) (did string) {
+	url := fmt.Sprintf("%s/com.atproto.identity.resolveHandle?handle=%s", blueskyAPIBase, handle)
+
+	resp, err := httpClient.Get(url)
+	if irc.checkErr(err, "can't get resolve bluesky handle") {
 		return
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
-		irc.Log.Printf("bad http code in titleTwitter: %d\n", resp.StatusCode)
+		irc.Log.Printf("Can't resolve bsky handle %s : HTTP code %d\n", handle, resp.StatusCode)
 		return
 	}
+
 	br := io.LimitedReader{R: resp.Body, N: trustedReadLimit}
-	body, err := io.ReadAll(&br)
-	if irc.checkErr(err, "error reading tweet") {
+	type ResolveHandleResponse struct {
+		Did string `json:"did"`
+	}
+	var result ResolveHandleResponse
+	if irc.checkErr(json.NewDecoder(&br).Decode(&result), "Invalid JSON from bsky handle resolve") {
 		return
 	}
-	var tweet Tweet
-	err = json.Unmarshal(body, &tweet)
-	if irc.checkErr(err, "error deserializing tweet") {
+	return result.Did
+}
+
+func (irc *Bot) getBlueskyPost(did, postID string) (record BlueskyPostRecord, err error) {
+	url := fmt.Sprintf("%s/com.atproto.repo.getRecord?repo=%s&collection=app.bsky.feed.post&rkey=%s",
+		blueskyAPIBase, did, postID)
+
+	resp, err := httpClient.Get(url)
+	if err != nil {
 		return
 	}
-	var author string
-	var verified bool
-	for _, incl := range tweet.Includes.Users {
-		if incl.ID == tweet.Data.AuthorID {
-			author = incl.Username
-			verified = incl.Verified
-			break
-		}
-	}
-	ts, err := time.Parse(IRCv3TimestampFormat, tweet.Data.CreatedAt)
-	if irc.checkErr(err, "invalid time created in tweet") {
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		irc.Log.Printf("Can't resolve bsky handle %s : HTTP code %d\n", did, resp.StatusCode)
 		return
 	}
-	maybeCheckmark := ""
-	if verified {
-		maybeCheckmark = " \u2713" // 'CHECK MARK' (U+2713)
+
+	br := io.LimitedReader{R: resp.Body, N: trustedReadLimit}
+	type GetRecordResponse struct {
+		URI   string            `json:"uri"`
+		CID   string            `json:"cid"`
+		Value BlueskyPostRecord `json:"value"`
 	}
-	timeStr := displayTwitterTime(ts)
-	// https://stackoverflow.com/questions/30704063/the-twitter-api-seems-to-escape-ampersand-but-nothing-else
-	safeText := ircutils.SanitizeText(html.UnescapeString(tweet.Data.Text), titleCharLimit)
-	message := fmt.Sprintf("(@%s%s, %s) %s", author, maybeCheckmark, timeStr, safeText)
-	irc.sendReplyNotice(target, msgid, message)
+	var result GetRecordResponse
+	if irc.checkErr(json.NewDecoder(&br).Decode(&result), "Invalid JSON from bsky post lookup") {
+		irc.Log.Printf("Invalid JSON from bsky getRecord: %v", err)
+		return record, err
+	}
+
+	return result.Value, nil
 }
 
 func displayTwitterTime(then time.Time) string {
