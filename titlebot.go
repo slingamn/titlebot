@@ -60,7 +60,6 @@ var (
 
 type Bot struct {
 	ircevent.Connection
-	TwitterBearerToken string
 	Owner              string
 	semaphore          chan empty
 	userAgent          string
@@ -143,24 +142,6 @@ func (irc *Bot) checkErr(err error, message string) (fatal bool) {
 		return true
 	}
 	return false
-}
-
-type TwitterUser struct {
-	ID       string
-	Username string
-	Name     string
-	Verified bool
-}
-
-type Tweet struct {
-	Data struct {
-		Text      string
-		CreatedAt string `json:"created_at"`
-		AuthorID  string `json:"author_id"`
-	}
-	Includes struct {
-		Users []TwitterUser
-	}
 }
 
 type BlueskyPostRecord struct {
@@ -431,8 +412,6 @@ func newBot() *Bot {
 	// SASL is optional:
 	saslLogin := os.Getenv("TITLEBOT_SASL_LOGIN")
 	saslPassword := os.Getenv("TITLEBOT_SASL_PASSWORD")
-	// a Twitter API key (v2-capable) is optional (if unset, Twitter support is disabled):
-	twitterToken := os.Getenv("TITLEBOT_TWITTER_BEARER_TOKEN")
 	// owner is optional (if unset, titlebot won't accept any owner commands)
 	owner := os.Getenv("TITLEBOT_OWNER_ACCOUNT")
 	// more optional settings
@@ -464,7 +443,6 @@ func newBot() *Bot {
 			QuitMessage:  version,
 			Debug:        debug,
 		},
-		TwitterBearerToken: twitterToken,
 		Owner:              owner,
 		userAgent:          userAgent,
 		semaphore:          make(chan empty, concurrencyLimit),
