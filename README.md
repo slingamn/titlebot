@@ -4,7 +4,7 @@ titlebot
 titlebot is a simple IRC bot that:
 
 1. Automatically extracts and sends the titles of webpages posted in your channel
-1. Automatically downloads and reads Bluesky posts linked in your channel
+1. Automatically downloads and reads Mastodon and Bluesky posts linked in your channel
 1. Demonstrates some of the IRCv3 support provided by [ergochat/irc-go](https://github.com/ergochat/irc-go)
 
 It is configured using environment variables:
