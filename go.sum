@@ -1,10 +1,4 @@
-github.com/ergochat/irc-go v0.0.0-20210617222258-256f1601d3ce h1:RfyjeynouKZjmnN8WGzCSrtuHGZ9dwfSYBq405FPoqs=
-github.com/ergochat/irc-go v0.0.0-20210617222258-256f1601d3ce/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
-github.com/ergochat/irc-go v0.0.0-20211003214124-0e1b7ad1b94f h1:q7yvbR6ldkjF6ohiTJpUM/aYYhk8YhvlYlv4sDpE3bA=
-github.com/ergochat/irc-go v0.0.0-20211003214124-0e1b7ad1b94f/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
-github.com/ergochat/irc-go v0.1.0 h1:jBHUayERH9SiPOWe4ePDWRztBjIQsU/jwLbbGUuiOWM=
-github.com/ergochat/irc-go v0.1.0/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
-github.com/ergochat/irc-go v0.2.0 h1:3vHdy4c56UTY6+/rTBrQc1fmt32N5G8PrEZacJDOr+E=
-github.com/ergochat/irc-go v0.2.0/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
-github.com/ergochat/irc-go v0.3.0 h1:qgvb2knh8d6yIVsHX+PRQ2CiRj1NGG5x88ABmR1lWng=
-github.com/ergochat/irc-go v0.3.0/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
+github.com/ergochat/irc-go v0.4.0 h1:0YibCKfAAtwxQdNjLQd9xpIEPisLcJ45f8FNsMHAuZc=
+github.com/ergochat/irc-go v0.4.0/go.mod h1:2vi7KNpIPWnReB5hmLpl92eMywQvuIeIIGdt/FQCph0=
+golang.org/x/net v0.37.0 h1:1zLorHbz+LYj7MQlSf1+2tPIIgibq2eL5xkrGk6f+2c=
+golang.org/x/net v0.37.0/go.mod h1:ivrbrMbzFq5J41QOQh0siUuly180yBYtLp+CKbEaFx8=

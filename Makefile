@@ -5,8 +5,9 @@
 export CGO_ENABLED ?= 0
 
 build:
-	go vet titlebot.go
+	go test .
+	go vet .
 	go build titlebot.go
 
 gofmt:
-	gofmt -s -w titlebot.go
+	gofmt -s -w *.go

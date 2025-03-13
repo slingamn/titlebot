@@ -8,6 +8,7 @@ package main
 // Tweets. It is configured via environment variables (see newBot for a list).
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -26,6 +27,8 @@ import (
 	"github.com/ergochat/irc-go/ircevent"
 	"github.com/ergochat/irc-go/ircmsg"
 	"github.com/ergochat/irc-go/ircutils"
+
+	"github.com/slingamn/titlebot/htmlutil"
 )
 
 type empty struct{}
@@ -53,6 +56,9 @@ var (
 	// <title>bar</title>, <title data-react-helmet="true">qux</title>
 	genericTitleRe = regexp.MustCompile(`(?is)<\s*title\b.*?>(.*?)<`)
 
+	// <link href="https://baz.bat/users/Qux/status/111111111111" rel='alternate' type='application/activity+json'>
+	activityPubRe = regexp.MustCompile(`(?is)<\s*link\b[^>]*?type=['"]application/activity\+json['"].*?>`)
+
 	httpClient = &http.Client{
 		Timeout: 15 * time.Second,
 	}
@@ -60,9 +66,9 @@ var (
 
 type Bot struct {
 	ircevent.Connection
-	Owner              string
-	semaphore          chan empty
-	userAgent          string
+	Owner     string
+	semaphore chan empty
+	userAgent string
 }
 
 func (b *Bot) tryAcquireSemaphore() bool {
@@ -167,8 +173,12 @@ func (irc *Bot) titleBluesky(target, msgid, handle, postid string) {
 	if irc.checkErr(err, "invalid time created in bsky post") {
 		return
 	}
+	irc.titleSocialPost(target, msgid, handle, ts, record.Text)
+}
+
+func (irc *Bot) titleSocialPost(target, msgid string, handle string, ts time.Time, contents string) {
 	timeStr := displayTwitterTime(ts)
-	message := fmt.Sprintf("(@%s, %s) %s", handle, timeStr, record.Text)
+	message := fmt.Sprintf("(@%s, %s) %s", handle, timeStr, contents)
 	safeMessage := ircutils.SanitizeText(message, titleCharLimit)
 	irc.sendReplyNotice(target, msgid, safeMessage)
 }
@@ -226,6 +236,37 @@ func (irc *Bot) getBlueskyPost(did, postID string) (record BlueskyPostRecord, er
 	}
 
 	return result.Value, nil
+}
+
+func (irc *Bot) titleActivityPub(target, msgid string, body []byte) {
+	metaTags, _ := htmlutil.ExtractMetaTags(bytes.NewBuffer(body))
+
+	var username, contents string
+	var timestamp time.Time
+	for _, metaTag := range metaTags {
+		switch metaTag.Property {
+		case "profile:username":
+			username = metaTag.Content
+		case "og:published_time":
+			// this field is documented as ISO 8601, fractional seconds are optional
+			if t, err := time.Parse(time.RFC3339, metaTag.Content); err == nil {
+				timestamp = t
+			} else if t, err := time.Parse(time.RFC3339Nano, metaTag.Content); err == nil {
+				timestamp = t
+			}
+		case "og:description":
+			contents = metaTag.Content
+		}
+	}
+
+	if username == "" || contents == "" || timestamp.IsZero() {
+		if irc.Debug {
+			irc.Log.Printf("failed titling; couldn't retrieve required activitypub elements")
+			return
+		}
+	}
+
+	irc.titleSocialPost(target, msgid, username, timestamp, contents)
 }
 
 func displayTwitterTime(then time.Time) string {
@@ -300,6 +341,10 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 	// ErrUnexpectedEOF is OK if we didn't get the whole page
 	if !(err == nil || err == io.ErrUnexpectedEOF) {
 		irc.Log.Printf("couldn't read in titleGeneric: %v\n", err)
+		return
+	}
+	if len(body) <= genericTitleReadLimit && activityPubRe.Match(body) {
+		irc.titleActivityPub(target, msgid, body)
 		return
 	}
 	success := false
@@ -445,9 +490,9 @@ func newBot() *Bot {
 			QuitMessage:  version,
 			Debug:        debug,
 		},
-		Owner:              owner,
-		userAgent:          userAgent,
-		semaphore:          make(chan empty, concurrencyLimit),
+		Owner:     owner,
+		userAgent: userAgent,
+		semaphore: make(chan empty, concurrencyLimit),
 	}
 
 	irc.AddConnectCallback(func(e ircmsg.Message) {
