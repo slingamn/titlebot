@@ -41,8 +41,6 @@ const (
 
 	concurrencyLimit = 128
 
-	IRCv3TimestampFormat = "2006-01-02T15:04:05.000Z"
-
 	defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.81 Safari/537.36"
 
 	replyTagName = "+draft/reply"
@@ -169,16 +167,16 @@ func (irc *Bot) titleBluesky(target, msgid, handle, postid string) {
 		return
 	}
 
-	ts, err := time.Parse(IRCv3TimestampFormat, record.CreatedAt)
+	ts, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
 	if irc.checkErr(err, "invalid time created in bsky post") {
 		return
 	}
-	irc.titleSocialPost(target, msgid, handle, ts, record.Text)
+	irc.titleSocialPost(target, msgid, "@"+handle, ts, record.Text)
 }
 
 func (irc *Bot) titleSocialPost(target, msgid string, handle string, ts time.Time, contents string) {
 	timeStr := displayTwitterTime(ts)
-	message := fmt.Sprintf("(@%s, %s) %s", handle, timeStr, contents)
+	message := fmt.Sprintf("(%s, %s) %s", handle, timeStr, contents)
 	safeMessage := ircutils.SanitizeText(message, titleCharLimit)
 	irc.sendReplyNotice(target, msgid, safeMessage)
 }
@@ -249,9 +247,7 @@ func (irc *Bot) titleActivityPub(target, msgid string, body []byte) {
 			username = metaTag.Content
 		case "og:published_time":
 			// this field is documented as ISO 8601, fractional seconds are optional
-			if t, err := time.Parse(time.RFC3339, metaTag.Content); err == nil {
-				timestamp = t
-			} else if t, err := time.Parse(time.RFC3339Nano, metaTag.Content); err == nil {
+			if t, err := time.Parse(time.RFC3339Nano, metaTag.Content); err == nil {
 				timestamp = t
 			}
 		case "og:description":
