@@ -53,6 +53,8 @@ var (
 	blueskyRe = regexp.MustCompile(`https://bsky\.app/profile/([^/]+)/post/([^/]+)`)
 	// <title>bar</title>, <title data-react-helmet="true">qux</title>
 	genericTitleRe = regexp.MustCompile(`(?is)<\s*title\b.*?>(.*?)<`)
+	// <shreddit-title title="Bar baz bat qux: r/qux"></shreddit-title>
+	shredditRe = regexp.MustCompile(`(?is)<shreddit-title.*?title="(.+?)".*?</shreddit-title>`)
 
 	// <link href="https://baz.bat/users/Qux/status/111111111111" rel='alternate' type='application/activity+json'>
 	activityPubRe = regexp.MustCompile(`(?is)<\s*link\b[^>]*?type=['"]application/activity\+json['"].*?>`)
@@ -401,8 +403,13 @@ func (irc *Bot) analyzeURL(urlStr string) (byteLimit int, titleRe *regexp.Regexp
 	if splitHost, _, err := net.SplitHostPort(host); err == nil {
 		host = splitHost
 	}
-	if isGarbageJSDomain(strings.ToLower(host)) {
+	host = strings.ToLower(host)
+	if isGarbageJSDomain(host) {
 		return trustedReadLimit, genericTitleRe, nil
+	} else if host == "reddit.com" || host == "www.reddit.com" {
+		// old.reddit.com and similar (np.reddit.com) serve a normal title tag,
+		// this is just for new reddit ("shreddit")
+		return trustedReadLimit, shredditRe, nil
 	} else {
 		return genericTitleReadLimit, genericTitleRe, nil
 	}
