@@ -45,7 +45,7 @@ const (
 
 	replyTagName = "+draft/reply"
 
-	blueskyAPIBase = "https://bsky.social/xrpc"
+	publicBlueskyAPIBase = "https://public.api.bsky.app/xrpc"
 )
 
 var (
@@ -160,8 +160,14 @@ type BlueskyPostRecord struct {
 }
 
 func (irc *Bot) titleBluesky(target, msgid, handle, postid string) {
-	did := irc.resolveBlueskyHandle(handle)
-	if did == "" {
+	var did string
+	if strings.HasPrefix(handle, "did:plc:") {
+		did = handle
+		handle = irc.resolveBlueskyDidToHandle(did)
+	} else {
+		did = irc.resolveBlueskyHandle(handle)
+	}
+	if did == "" || handle == "" {
 		return
 	}
 	record, err := irc.getBlueskyPost(did, postid)
@@ -183,8 +189,33 @@ func (irc *Bot) titleSocialPost(target, msgid string, handle string, ts time.Tim
 	irc.sendReplyNotice(target, msgid, safeMessage)
 }
 
+func (irc *Bot) resolveBlueskyDidToHandle(handle string) (did string) {
+	url := fmt.Sprintf("%s/app.bsky.actor.getProfile?actor=%s", publicBlueskyAPIBase, handle)
+
+	resp, err := httpClient.Get(url)
+	if irc.checkErr(err, "can't get resolve bluesky handle") {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		irc.Log.Printf("Can't resolve bsky did %s : HTTP code %d\n", handle, resp.StatusCode)
+		return
+	}
+
+	br := io.LimitedReader{R: resp.Body, N: trustedReadLimit}
+	type ProfileResponse struct {
+		Handle string `json:"handle"`
+	}
+	var result ProfileResponse
+	if irc.checkErr(json.NewDecoder(&br).Decode(&result), "Invalid JSON from bsky profile resolve") {
+		return
+	}
+	return result.Handle
+}
+
 func (irc *Bot) resolveBlueskyHandle(handle string) (did string) {
-	url := fmt.Sprintf("%s/com.atproto.identity.resolveHandle?handle=%s", blueskyAPIBase, handle)
+	url := fmt.Sprintf("%s/com.atproto.identity.resolveHandle?handle=%s", publicBlueskyAPIBase, handle)
 
 	resp, err := httpClient.Get(url)
 	if irc.checkErr(err, "can't get resolve bluesky handle") {
@@ -210,7 +241,7 @@ func (irc *Bot) resolveBlueskyHandle(handle string) (did string) {
 
 func (irc *Bot) getBlueskyPost(did, postID string) (record BlueskyPostRecord, err error) {
 	url := fmt.Sprintf("%s/com.atproto.repo.getRecord?repo=%s&collection=app.bsky.feed.post&rkey=%s",
-		blueskyAPIBase, did, postID)
+		publicBlueskyAPIBase, did, postID)
 
 	resp, err := httpClient.Get(url)
 	if err != nil {
