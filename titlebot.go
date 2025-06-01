@@ -28,6 +28,7 @@ import (
 	"github.com/ergochat/irc-go/ircmsg"
 	"github.com/ergochat/irc-go/ircutils"
 
+	"github.com/slingamn/titlebot/godgets"
 	"github.com/slingamn/titlebot/htmlutil"
 )
 
@@ -67,21 +68,8 @@ var (
 type Bot struct {
 	ircevent.Connection
 	Owner     string
-	semaphore chan empty
+	semaphore godgets.Semaphore
 	userAgent string
-}
-
-func (b *Bot) tryAcquireSemaphore() bool {
-	select {
-	case b.semaphore <- empty{}:
-		return true
-	default:
-		return false
-	}
-}
-
-func (b *Bot) releaseSemaphore() {
-	<-b.semaphore
 }
 
 func findURL(str string) (urls []string) {
@@ -116,11 +104,11 @@ func (irc *Bot) titleAll(target, msgid string, urls []string) {
 }
 
 func (irc *Bot) title(target, msgid, url string) {
-	if !irc.tryAcquireSemaphore() {
+	if !irc.semaphore.TryAcquire() {
 		irc.Log.Printf("concurrency limit exceeded, not titling %s\n", url)
 		return
 	}
-	defer irc.releaseSemaphore()
+	defer irc.semaphore.Release()
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -526,7 +514,7 @@ func newBot() *Bot {
 		},
 		Owner:     owner,
 		userAgent: userAgent,
-		semaphore: make(chan empty, concurrencyLimit),
+		semaphore: godgets.NewSemaphore(concurrencyLimit),
 	}
 
 	irc.AddConnectCallback(func(e ircmsg.Message) {
