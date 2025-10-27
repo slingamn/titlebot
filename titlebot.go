@@ -60,6 +60,8 @@ var (
 	// <link href="https://baz.bat/users/Qux/status/111111111111" rel='alternate' type='application/activity+json'>
 	activityPubRe = regexp.MustCompile(`(?is)<\s*link\b[^>]*?type=['"]application/activity\+json['"].*?>`)
 
+	youtubeTitleRe = regexp.MustCompile(`\{"title":\{"runs":\[\{"text":"(.*?)"\}`)
+
 	httpClient = &http.Client{
 		Timeout: 15 * time.Second,
 	}
@@ -400,8 +402,6 @@ var garbageJSDomains = []string{
 	"google.com",
 	"goo.gl",
 	"github.com",
-	"youtube.com",
-	"youtu.be",
 }
 
 func isGarbageJSDomain(host string) bool {
@@ -429,6 +429,8 @@ func (irc *Bot) analyzeURL(urlStr string) (byteLimit int, titleRe *regexp.Regexp
 		// old.reddit.com and similar (np.reddit.com) serve a normal title tag,
 		// this is just for new reddit ("shreddit")
 		return trustedReadLimit, shredditRe, nil
+	} else if domainMatch(host, "youtube.com") || domainMatch(host, "youtu.be") {
+		return trustedReadLimit, youtubeTitleRe, nil
 	} else {
 		return genericTitleReadLimit, genericTitleRe, nil
 	}
