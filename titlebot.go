@@ -60,7 +60,7 @@ var (
 	// <link href="https://baz.bat/users/Qux/status/111111111111" rel='alternate' type='application/activity+json'>
 	activityPubRe = regexp.MustCompile(`(?is)<\s*link\b[^>]*?type=['"]application/activity\+json['"].*?>`)
 
-	youtubeTitleRe = regexp.MustCompile(`\{"title":\{"runs":\[\{"text":"(.*?)"\}`)
+	youtubeTitleRe = regexp.MustCompile(`(?:videoPrimaryInfoRenderer|videoDescriptionHeaderRenderer)":\{"title":\{"runs":\[\{"text":"(.*?)"\}`)
 
 	httpClient = &http.Client{
 		Timeout: 15 * time.Second,
