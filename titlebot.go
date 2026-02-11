@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -60,6 +61,8 @@ var (
 
 	youtubeTitleRe = regexp.MustCompile(`(?:videoPrimaryInfoRenderer|videoDescriptionHeaderRenderer)":\{"title":\{"runs":\[\{"text":"(.*?)"\}`)
 
+	tweetRe = regexp.MustCompile(`(?i)\bhttps://(?:mobile\.)?(?:twitter.com|x.com|nitter.net)/(.*?)/status/([0-9]+)`)
+
 	httpClient = &http.Client{
 		Timeout: 15 * time.Second,
 	}
@@ -67,9 +70,10 @@ var (
 
 type Bot struct {
 	ircevent.Connection
-	Owner     string
-	semaphore godgets.Semaphore
-	userAgent string
+	Owner        string
+	semaphore    godgets.Semaphore
+	userAgent    string
+	enableNitter bool
 }
 
 func findURL(str string) (urls []string) {
@@ -90,6 +94,14 @@ func extractBlueskyData(url string) (handle, postid string) {
 	matches := blueskyRe.FindStringSubmatch(url)
 	if len(matches) == 3 {
 		return matches[1], matches[2]
+	}
+	return
+}
+
+func extractTweetData(url string) (handle, postid string) {
+	matches := tweetRe.FindStringSubmatch(url)
+	if len(matches) == 3 {
+		handle, postid = matches[1], matches[2]
 	}
 	return
 }
@@ -125,6 +137,10 @@ func (irc *Bot) title(target, msgid, url string) {
 
 	if handle, postid := extractBlueskyData(url); handle != "" {
 		irc.titleBluesky(target, msgid, handle, postid)
+	} else if handle, postid := extractTweetData(url); handle != "" {
+		if irc.enableNitter {
+			irc.titleTwitter(target, msgid, handle, postid)
+		}
 	} else {
 		irc.titleGeneric(target, msgid, url)
 	}
@@ -168,6 +184,92 @@ func (irc *Bot) titleBluesky(target, msgid, handle, postid string) {
 		return
 	}
 	irc.titleSocialPost(target, msgid, "@"+handle, ts, record.Text)
+}
+
+func (irc *Bot) titleTwitter(target, msgid, handle, postid string) {
+	nitterURL := fmt.Sprintf("https://nitter.net/%s/status/%s", handle, postid)
+
+	req, err := http.NewRequest("GET", nitterURL, nil)
+	if irc.checkErr(err, "NewRequest error in titleTwitter") {
+		return
+	}
+	headers := map[string][]string{
+		"User-Agent":                {irc.userAgent},
+		"Accept":                    {"*/*"},
+		"Accept-Language":           {"en-US,en;q=0.9"},
+		"Upgrade-Insecure-Requests": {"1"},
+	}
+	req.Header = headers
+
+	resp, err := httpClient.Do(req)
+	if irc.checkErr(err, "http error in titleTwitter") {
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		irc.Log.Printf("Can't title %s : HTTP code %d\n", nitterURL, resp.StatusCode)
+		return
+	}
+	br := io.LimitedReader{R: resp.Body, N: int64(trustedReadLimit)}
+	body, err := io.ReadAll(&br)
+	// ErrUnexpectedEOF is OK if we didn't get the whole page
+	if !(err == nil || err == io.ErrUnexpectedEOF) {
+		irc.Log.Printf("couldn't read in titleTwitter: %v\n", err)
+		return
+	}
+
+	if len(body) == 0 {
+		irc.Log.Printf("empty response from nitter: %s\n", nitterURL)
+		return
+	}
+
+	handle, ts, contents, err := parseNitter(body)
+	if irc.checkErr(err, "Couldn't parse nitter response") {
+		return
+	}
+	irc.titleSocialPost(target, msgid, handle, ts, contents)
+}
+
+var (
+	nitterTimeRe       = regexp.MustCompile(`<span class="tweet-date".*?title="(.*?)"`)
+	nitterTimeNotFound = errors.New("couldn't find nitter timestamp")
+
+	nitterUsernameRe       = regexp.MustCompile(`<a class="username".*?title="(.*?)"`)
+	nitterUsernameNotFound = errors.New("couldn't find nitter username")
+
+	nitterBodyRe       = regexp.MustCompile(`(?s)<div class="tweet-content media-body".*?>(.*?)</div>`)
+	nitterBodyNotFound = errors.New("couldn't find nitter body / message contents")
+)
+
+func parseNitter(body []byte) (handle string, ts time.Time, contents string, err error) {
+	timeMatch := nitterTimeRe.FindSubmatch(body)
+	if len(timeMatch) == 2 {
+		ts, err = time.Parse("Jan 2, 2006 · 3:04 PM MST", string(timeMatch[1]))
+		if err != nil {
+			return
+		}
+	} else {
+		err = nitterTimeNotFound
+		return
+	}
+
+	usernameMatch := nitterUsernameRe.FindSubmatch(body)
+	if len(usernameMatch) == 2 && len(usernameMatch[1]) != 0 {
+		handle = string(usernameMatch[1])
+	} else {
+		err = nitterUsernameNotFound
+		return
+	}
+
+	contentsMatch := nitterBodyRe.FindSubmatch(body)
+	if len(contentsMatch) == 2 && len(contentsMatch[1]) != 0 {
+		contents = html.UnescapeString(string(contentsMatch[1]))
+	} else {
+		err = nitterBodyNotFound
+		return
+	}
+
+	return
 }
 
 func (irc *Bot) titleSocialPost(target, msgid string, handle string, ts time.Time, contents string) {
@@ -334,7 +436,7 @@ func (irc *Bot) titleGeneric(target, msgid, url string) {
 		return
 	}
 	req, err := http.NewRequest("GET", url, nil)
-	if irc.checkErr(err, "NewRequest error in titleTwitter") {
+	if irc.checkErr(err, "NewRequest error in titleGeneric") {
 		return
 	}
 	headers := map[string][]string{
@@ -494,6 +596,7 @@ func newBot() *Bot {
 	debug := os.Getenv("TITLEBOT_DEBUG") != ""
 	insecure := os.Getenv("TITLEBOT_INSECURE_SKIP_VERIFY") != ""
 	userAgent := os.Getenv("TITLEBOT_USER_AGENT")
+	enableNitter := os.Getenv("TITLEBOT_ENABLE_NITTER") != ""
 	if userAgent == "" {
 		userAgent = defaultUserAgent
 	}
@@ -515,9 +618,10 @@ func newBot() *Bot {
 			QuitMessage:  version,
 			Debug:        debug,
 		},
-		Owner:     owner,
-		userAgent: userAgent,
-		semaphore: godgets.NewSemaphore(concurrencyLimit),
+		Owner:        owner,
+		userAgent:    userAgent,
+		enableNitter: enableNitter,
+		semaphore:    godgets.NewSemaphore(concurrencyLimit),
 	}
 
 	irc.AddConnectCallback(func(e ircmsg.Message) {
